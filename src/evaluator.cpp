@@ -321,7 +321,7 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 
 	// holds the number of arguments for the function currently being evaluated
 	// when we reach a "," we meed to treat that as an end-of-line, popping operators
-	std::stack<size_t> func_stack;
+	std::stack<size_t> paren_stack;
 
 	std::list<token_t> postfix_tokens;
 
@@ -371,10 +371,10 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 			break;
 		}
 		case token_type::COMMA: {
-			if (func_stack.empty())
+			if (paren_stack.empty())
 				throw parse_exception("bad comma");
 
-			size_t& top = func_stack.top();
+			size_t& top = paren_stack.top();
 
 			if (top < 1)
 				throw parse_exception("bad comma OR too many args to function");
@@ -392,21 +392,23 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 		case token_type::LEFT_PAREN:
 			if (!stack.empty() && stack.top().m_type == token_type::FUNCTION)
 			{
-				func_stack.push(m_functions[stack.top().m_id].m_param_count);
+				paren_stack.push(m_functions[stack.top().m_id].m_param_count);
 			}
 			else
 			{
-				func_stack.push(1llu);
+				paren_stack.push(1llu);
 			}
 			stack.push(token);
 			break;
 
 		case token_type::RIGHT_PAREN:
-			if (func_stack.empty())
+			if (paren_stack.empty())
 				throw parse_exception("got close paren, but no open?");
 
-			if (func_stack.top() != 1) // count is decreased each arg, so final should be 1
-				throw parse_exception("not enough args?" + std::to_string(func_stack.top()));
+			if (paren_stack.top() != 1) // count is decreased each arg, so final should be 1
+				throw parse_exception("not enough args?" + std::to_string(paren_stack.top()));
+
+			paren_stack.pop();
 
 			while (!stack.empty() && stack.top().m_type == token_type::OPERATOR)
 			{
@@ -414,20 +416,15 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 				stack.pop();
 			}
 
-			if (!stack.empty() && stack.top().m_type != token_type::LEFT_PAREN)
+			if (stack.empty() || stack.top().m_type != token_type::LEFT_PAREN)
 				throw parse_exception("mismatched parentheses, closing unmatched parenthesis");
 
-			if (!stack.empty() && stack.top().m_type == token_type::LEFT_PAREN)
-			{
-				stack.pop();
-			}
+			stack.pop();
 
 			if (!stack.empty() && stack.top().m_type == token_type::FUNCTION)
 			{
 				postfix_tokens.push_back(stack.top());
 				stack.pop();
-
-				func_stack.pop();
 			}
 
 			while (!stack.empty() && stack.top().m_type == token_type::UNARY)
@@ -470,8 +467,7 @@ double evaluator_t::evaluate(std::list<token_t> postfix_tokens) const
 			}
 		};
 
-	auto it = postfix_tokens.begin();
-	while (it != postfix_tokens.end())
+	for (auto it = postfix_tokens.begin(); it != postfix_tokens.end(); ++it)
 	{
 		switch (it->m_type)
 		{
@@ -539,10 +535,9 @@ double evaluator_t::evaluate(std::list<token_t> postfix_tokens) const
 		default:
 			break;
 		}
-		it++;
 	}
 
-	return postfix_tokens.front().m_value;
+	return get_token_value(postfix_tokens.front());
 }
 
 // -----------------------------------------------------------------------------

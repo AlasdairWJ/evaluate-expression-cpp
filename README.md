@@ -10,34 +10,34 @@ I wanna do a write up on how to implement unary operators in shunting-yard at so
 
 Create an evaluator object
 
-```c++
+```
 eval::evaluator_t evaluate;
 ```
 
 Attach any operators/functions/constants you want to be available when parsing, in this exaple I've added all of the pre-configured operators/functions/constants
 
-```c++
-	evaluate.add_operator(eval::operators::add);
-	evaluate.add_operator(eval::operators::subtract);
-	evaluate.add_operator(eval::operators::multiply);
-	evaluate.add_operator(eval::operators::divide);
+```
+evaluate.add_operator(eval::operators::add);
+evaluate.add_operator(eval::operators::subtract);
+evaluate.add_operator(eval::operators::multiply);
+evaluate.add_operator(eval::operators::divide);
 
-	evaluate.add_unary(eval::unary::plus);
-	evaluate.add_unary(eval::unary::minus);
-	evaluate.add_unary(eval::unary::percent);
+evaluate.add_unary(eval::unary::plus);
+evaluate.add_unary(eval::unary::minus);
+evaluate.add_unary(eval::unary::percent);
 
-	evaluate.add_function(eval::functions::sqrt);
-	evaluate.add_function(eval::functions::pow);
-	evaluate.add_function(eval::functions::log);
-	evaluate.add_function(eval::functions::exp);
+evaluate.add_function(eval::functions::sqrt);
+evaluate.add_function(eval::functions::pow);
+evaluate.add_function(eval::functions::log);
+evaluate.add_function(eval::functions::exp);
 
-	evaluate.add_constant(eval::constants::pi);
-	evaluate.add_constant(eval::constants::e);
+evaluate.add_constant(eval::constants::pi);
+evaluate.add_constant(eval::constants::e);
 ```
 
 We can then evaluate expressions by either calling the `evaluate` method, or preferrably the `operator()` overloaded method
 
-```c++
+```
 std::cout << evaluate("(1+sqrt(5))/2") << std::endl;
 ```
 
@@ -61,7 +61,7 @@ The is called the validator and has the form `bool(double, double)`.
 
 Since addition is always valid, we can use the pre-defined validator `operators::always_valid`
 
-But if we were creating a division validator, which can fail if we attempt to divide by zero, the validator should then be
+But if we were creating the division operator, which can fail if we attempt to divide by zero, the validator should then be
 
 ```c++
 bool div_validator(const double a, const double b) { return b != 0; }
