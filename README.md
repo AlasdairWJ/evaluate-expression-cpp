@@ -2,7 +2,7 @@
 
 Been interested in making something along these lines for a while, and but always wanted something a little more versatile. Happy with this.
 
-I wanna do a write up on how to implement unary operator in shunting-yard at some point!
+I wanna do a write up on how to implement unary operators in shunting-yard at some point!
 
 ----
 
@@ -55,13 +55,13 @@ First we need an operation function, which for operators takes the form `double(
 double my_add(const double a, const double b) { return a + b; }
 ```
 
-We also require a validator function, which indicates if there are criteria that would cause the logic of the function to fail.
+We also need to define a second function, which checks if the parameters provided would cause the logic of the function to fail.
 
 The is called the validator and has the form `bool(double, double)`.
 
 Since addition is always valid, we can use the pre-defined validator `operators::always_valid`
 
-But for example if we were creating a division validtor, which can fail if we attempt to divide by zero, the validator would then be
+But if we were creating a division validator, which can fail if we attempt to divide by zero, the validator should then be
 
 ```c++
 bool div_validator(const double a, const double b) { return b != 0; }
@@ -83,7 +83,7 @@ however, if it was RIGHT associative, the expression would be
 
 	a + (b + c)
 
-All the basic operators '+', '-', '\*', and '\' are LEFT associative, so in general, you don't need to worry about it, but if you were to define '^' as the power operator, you'd have to define it as being RIGHT associative, because
+All the basic operators '+', '-', '\*', and '/' are LEFT associative, so in general, you don't need to worry about it, but if you were to define '^' as the power operator, you'd have to define it as being RIGHT associative, because
 
     a ^ b ^ c
 
@@ -103,7 +103,9 @@ If we have defined the precedence of the '+' operator to be 2, and the precedenc
 
 	a + (b * c)
 
-All of this comes together when we define a new `operator_info_t` object
+The default operators provided have precedence value 2 for '+' and '-', and 3 for '\*' and '/'.
+
+We can define our own operators with the `operator_info_t` object
 
 ```c++
 operator_info_t(char symbol, int precedence, const operation_t operation, associativity_t associativity = associativity_t::left, const validator_t validator = operators::always_valid);
@@ -113,11 +115,11 @@ operator_info_t(char symbol, int precedence, const operation_t operation, associ
 
 Unary operators are operators that apply to a single operand, so basically, the minus sign.
 
-Like, like regular (binary) operators, so create a custom unary operator, we require a symbol, an operation function, and a validation function
+Like, like regular (binary) operators, to create a custom unary operator, we require a symbol, an operation function, and a validation function
 
 The operation function takes the form `double(double)`, the validator function takes the form `bool(double)`
 
-but we also specify an associativity. In the context of unary operators, the associativity tells if the operator acts on the object to it's LEFT or its RIGHT.
+but we also specify an associativity. In the context of unary operators, the associativity tells if the operator acts on the object to its LEFT or its RIGHT.
 
 For example, the minus operator acts on the object to it's RIGHT
 
@@ -137,7 +139,7 @@ unary_info_t(char symbol, const operation_t operation, associativity_t associati
 
 Functions require a name and a parameter count, as well as an operation and validation function, with types `double(const double*)` and `bool(const double*)` where the pointed value is an array of parameters.
 
-`function_info_t` are constructed as such
+`function_info_t` objects are constructed as such
 
 ```c++
 function_info_t(const std::string& name, size_t param_count, const function_t function, const validator_t validator = functions::always_valid);

@@ -60,6 +60,7 @@ bool always_valid(const double* args) { return true; }
 namespace
 {
 bool arg0_gt_zero(const double* args) { return args[0] > 0; }
+bool arg0_ge_zero(const double* args) { return args[0] > 0; }
 
 double _log(const double *args) { return std::log(args[0]); }
 double _exp(const double *args) { return std::exp(args[0]); }
@@ -68,7 +69,7 @@ double _pow(const double *args) { return std::pow(args[0], args[1]); }
 bool pow_validator(const double *args) { return args[1] >= 0 || fmod(args[1], 1.0) == 0; }
 }
 
-const function_info_t sqrt("sqrt", 1, _sqrt, arg0_gt_zero);
+const function_info_t sqrt("sqrt", 1, _sqrt, arg0_ge_zero);
 const function_info_t exp("exp", 1, _exp, always_valid);
 const function_info_t log("log", 1, _log, arg0_gt_zero);
 const function_info_t pow("pow", 2, _pow, pow_validator);
