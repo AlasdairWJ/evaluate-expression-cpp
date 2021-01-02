@@ -14,6 +14,7 @@ int main(int argc, char const* argv[])
 	evaluate.add_unary(eval::unary::minus);
 	evaluate.add_unary(eval::unary::percent);
 
+	evaluate.add_function(eval::functions::abs);
 	evaluate.add_function(eval::functions::sqrt);
 	evaluate.add_function(eval::functions::pow);
 	evaluate.add_function(eval::functions::log);
@@ -21,6 +22,8 @@ int main(int argc, char const* argv[])
 
 	evaluate.add_constant(eval::constants::pi);
 	evaluate.add_constant(eval::constants::e);
+
+	evaluate.associate_pipe_with_implicit_function("abs");
 
 	std::string line;
 	while (std::cout << "> ", std::getline(std::cin, line) && !line.empty())

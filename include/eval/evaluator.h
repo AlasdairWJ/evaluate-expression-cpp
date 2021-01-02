@@ -106,6 +106,7 @@ struct function_info_t
 
 namespace functions
 {
+extern const function_info_t abs;
 extern const function_info_t sqrt;
 extern const function_info_t exp;
 extern const function_info_t log;
@@ -136,7 +137,22 @@ struct token_t
 		double m_value;
 	};
 };
-
+/*
+bool operator==(const token_t& token, const char symbol)
+{
+	switch (token.m_type)
+	{
+	case token_type::LEFT_PAREN:
+	case token_type::RIGHT_PAREN:
+	case token_type::COMMA:
+	case token_type::OPERATOR:
+	case token_type::UNARY:
+		return token.m_symbol == symbol;
+	default:
+		return false;
+	}
+}
+*/
 struct evaluator_t
 {
 	// -------------------------------------------------------------------------
@@ -162,11 +178,21 @@ struct evaluator_t
 
 	// -------------------------------------------------------------------------
 
+	evaluator_t& associate_pipe_with_implicit_function(const std::string& function_name);
+	evaluator_t& associate_pipe_with_implicit_function(const size_t function_id);
+	evaluator_t& dissociate_pipe();
+
+	// -------------------------------------------------------------------------
+
 private:
+
+	bool m_pipe_has_associated_function;
+	size_t m_pipe_associated_function_id;
+
 	std::list<token_t> tokenise(const std::string& expression) const;
 	std::list<token_t> to_postfix(const std::list<token_t>& infix_tokens) const;
 
-	bool read_token(const std::string& line, size_t& position, token_t& token, bool expecting_identifier) const;
+	bool read_token(const std::string& line, size_t& position, token_t& token, bool expecting_left_paren, bool expecting_identifier) const;
 	
 	// -------------------------------------------------------------------------
 

@@ -60,8 +60,9 @@ bool always_valid(const double* args) { return true; }
 namespace
 {
 bool arg0_gt_zero(const double* args) { return args[0] > 0; }
-bool arg0_ge_zero(const double* args) { return args[0] > 0; }
+bool arg0_ge_zero(const double* args) { return args[0] >= 0; }
 
+double _abs(const double *args) { return std::abs(args[0]); }
 double _log(const double *args) { return std::log(args[0]); }
 double _exp(const double *args) { return std::exp(args[0]); }
 double _sqrt(const double *args) { return std::sqrt(args[0]); }
@@ -69,6 +70,7 @@ double _pow(const double *args) { return std::pow(args[0], args[1]); }
 bool pow_validator(const double *args) { return args[1] >= 0 || fmod(args[1], 1.0) == 0; }
 }
 
+const function_info_t abs("abs", 1, _abs, always_valid);
 const function_info_t sqrt("sqrt", 1, _sqrt, arg0_ge_zero);
 const function_info_t exp("exp", 1, _exp, always_valid);
 const function_info_t log("log", 1, _log, arg0_gt_zero);
@@ -129,10 +131,21 @@ std::string lazy_format(const char* fmt, Args... args)
 
 // -----------------------------------------------------------------------------
 
-bool evaluator_t::read_token(const std::string& line, size_t& position, token_t& token, const bool expecting_identifier) const
+bool evaluator_t::read_token(const std::string& line, size_t& position, token_t& token, const bool expecting_left_paren, const bool expecting_identifier) const
 {
 	if (expecting_identifier)
 	{
+		if (line[position] == '(' || line[position] == '|')
+		{
+			token.m_type = token_type::LEFT_PAREN;
+			token.m_symbol = line[position++];
+			return true;
+		}
+		else if (expecting_left_paren)
+		{
+			throw parse_exception("expecting left paren immediately after function token");
+		}
+
 		if (isalpha(line[position]))
 		{
 			size_t identifier_length = 1;
@@ -180,7 +193,7 @@ bool evaluator_t::read_token(const std::string& line, size_t& position, token_t&
 	}
 	else
 	{
-		if (line[position] == ')')
+		if (line[position] == ')' || line[position] == '|')
 		{
 			token.m_type = token_type::RIGHT_PAREN;
 			token.m_symbol = line[position++];
@@ -229,26 +242,12 @@ std::list<token_t> evaluator_t::tokenise(const std::string& line) const
 		}
 
 		token_t token;
-
-		if (line[position] == '(')
-		{
-			token.m_type = token_type::LEFT_PAREN;
-			token.m_symbol = line[position++];
-
-			expecting_left_paren = false;
-		}
-		else
-		{
-			if (expecting_left_paren)
-				throw parse_exception("no left paren immediately after function token");
-
-			if (!read_token(line, position, token, expecting_identifier))
-				throw parse_exception(lazy_format("failed to read token at position %llu", position));
-		}
-
+		if (!read_token(line, position, token, expecting_left_paren, expecting_identifier))
+			throw parse_exception(lazy_format("failed to read token at position %llu", position));
 
 		output.push_back(token);
 
+		expecting_left_paren = false;
 		switch (token.m_type)
 		{
 		case token_type::FUNCTION:
@@ -321,7 +320,7 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 
 	// holds the number of arguments for the function currently being evaluated
 	// when we reach a "," we meed to treat that as an end-of-line, popping operators
-	std::stack<size_t> paren_stack;
+	std::stack<std::pair<char, size_t>> paren_stack;
 
 	std::list<token_t> postfix_tokens;
 
@@ -374,12 +373,12 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 			if (paren_stack.empty())
 				throw parse_exception("bad comma");
 
-			size_t& top = paren_stack.top();
+			auto& top = paren_stack.top();
 
-			if (top < 1)
+			if (top.second <= 1)
 				throw parse_exception("bad comma OR too many args to function");
 
-			top--;
+			top.second--;
 
 			while (!stack.empty() && stack.top().m_type == token_type::OPERATOR)
 			{
@@ -392,11 +391,11 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 		case token_type::LEFT_PAREN:
 			if (!stack.empty() && stack.top().m_type == token_type::FUNCTION)
 			{
-				paren_stack.push(m_functions[stack.top().m_id].m_param_count);
+				paren_stack.emplace(token.m_symbol, m_functions[stack.top().m_id].m_param_count);
 			}
 			else
 			{
-				paren_stack.push(1llu);
+				paren_stack.emplace(token.m_symbol, 1llu);
 			}
 			stack.push(token);
 			break;
@@ -405,10 +404,8 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 			if (paren_stack.empty())
 				throw parse_exception("got close paren, but no open?");
 
-			if (paren_stack.top() != 1) // count is decreased each arg, so final should be 1
-				throw parse_exception("not enough args?" + std::to_string(paren_stack.top()));
-
-			paren_stack.pop();
+			if (paren_stack.top().second != 1) // count is decreased each arg, so final should be 1
+				throw parse_exception("not enough args?");
 
 			while (!stack.empty() && stack.top().m_type == token_type::OPERATOR)
 			{
@@ -420,6 +417,16 @@ std::list<token_t> evaluator_t::to_postfix(const std::list<token_t>& infix_token
 				throw parse_exception("mismatched parentheses, closing unmatched parenthesis");
 
 			stack.pop();
+
+			if (paren_stack.top().first == '|' && m_pipe_has_associated_function)
+			{
+				token_t pipe_function_token;
+				pipe_function_token.m_type = token_type::FUNCTION;
+				pipe_function_token.m_id = m_pipe_associated_function_id;
+				postfix_tokens.push_back(pipe_function_token);
+			}
+
+			paren_stack.pop();
 
 			if (!stack.empty() && stack.top().m_type == token_type::FUNCTION)
 			{
@@ -587,6 +594,27 @@ evaluator_t &evaluator_t::add_function(const function_info_t& info)
 	m_function_name_map.emplace(info.m_name, id);
 	return *this;
 }
+
+// -----------------------------------------------------------------------------
+
+evaluator_t& evaluator_t::associate_pipe_with_implicit_function(const size_t function_id)
+{
+	m_pipe_has_associated_function = true;
+	m_pipe_associated_function_id = function_id;
+	return *this;
+}
+
+evaluator_t& evaluator_t::associate_pipe_with_implicit_function(const std::string& function_name)
+{
+	return associate_pipe_with_implicit_function(m_function_name_map.find(function_name)->second);
+}
+
+evaluator_t& evaluator_t::dissociate_pipe()
+{
+	m_pipe_has_associated_function = false;
+	return *this;
+}
+
 
 // -----------------------------------------------------------------------------
 
